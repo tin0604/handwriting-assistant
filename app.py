@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
-from openai import OpenAI
+import openai
 import base64
 import os
 import json
@@ -8,13 +8,10 @@ import json
 app = Flask(__name__)
 CORS(app)
 
-# 从环境变量读取API密钥
-client = OpenAI(
-    api_key=os.environ.get("ERNIE_API_KEY"),
-    base_url="https://aistudio.baidu.com/llm/lmapi/v3"
-)
+# 使用旧版语法
+openai.api_key = os.environ.get("ERNIE_API_KEY")
+openai.api_base = "https://aistudio.baidu.com/llm/lmapi/v3"
 
-# 服务前端页面
 @app.route('/')
 def serve_frontend():
     return send_file('index.html')
@@ -39,7 +36,8 @@ def analyze_note():
         if custom_prompt:
             system_prompt = custom_prompt
 
-        completion = client.chat.completions.create(
+        # 旧版API调用
+        completion = openai.ChatCompletion.create(
             model="ernie-4.5-vl-28b-a3b-thinking",
             messages=[
                 {
@@ -52,16 +50,15 @@ def analyze_note():
                         }
                     ]
                 }
-            ],
-            stream=False
+            ]
         )
         
         response = completion.choices[0].message
         
         return jsonify({
             'success': True,
-            'content': response.content,
-            'reasoning': getattr(response, 'reasoning_content', ''),
+            'content': response.get('content', ''),
+            'reasoning': response.get('reasoning_content', ''),
             'type': prompt_type
         })
         
@@ -84,4 +81,5 @@ def export_note():
     return jsonify({'markdown': markdown})
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get('PORT', 8000))
+    app.run(host='0.0.0.0', port=port)
