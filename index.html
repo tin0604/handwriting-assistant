@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>手写笔记智能助手 - ERNIE-4.5-VL</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --success: #10b981;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 40px 20px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            margin: -20px -20px 30px -20px;
+            border-radius: 0 0 30px 30px;
+            box-shadow: 0 10px 40px rgba(79, 70, 229, 0.2);
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .subtitle {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+        
+        .card {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border);
+        }
+        
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #fafafa;
+        }
+        
+        .upload-area:hover, .upload-area.dragover {
+            border-color: var(--primary);
+            background: #eef2ff;
+        }
+        
+        .upload-area i {
+            font-size: 48px;
+            color: var(--primary);
+            margin-bottom: 12px;
+            display: block;
+        }
+        
+        .upload-text {
+            color: var(--text-light);
+            font-size: 0.95rem;
+        }
+        
+        .upload-hint {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-top: 8px;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .preview-section {
+            display: none;
+            margin-top: 20px;
+        }
+        
+        .preview-section.active {
+            display: block;
+        }
+        
+        .image-preview {
+            width: 100%;
+            max-height: 300px;
+            object-fit: contain;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        
+        .options {
+            margin: 20px 0;
+        }
+        
+        .option-label {
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: block;
+            color: var(--text);
+        }
+        
+        .option-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .option-btn {
+            padding: 12px;
+            border: 2px solid var(--border);
+            background: white;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+        
+        .option-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        
+        .option-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        
+        .custom-prompt {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 0.95rem;
+            resize: vertical;
+            min-height: 80px;
+            font-family: inherit;
+            margin-top: 10px;
+        }
+        
+        .custom-prompt:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .btn-primary {
+            width: 100%;
+            padding: 16px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #e0e7ff;
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .result-section {
+            display: none;
+        }
+        
+        .result-section.active {
+            display: block;
+        }
+        
+        .result-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 10px;
+        }
+        
+        .tab-btn {
+            padding: 8px 16px;
+            background: none;
+            border: none;
+            color: var(--text-light);
+            cursor: pointer;
+            font-size: 0.9rem;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -12px;
+        }
+        
+        .tab-btn.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .result-content {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            min-height: 200px;
+            white-space: pre-wrap;
+            line-height: 1.8;
+            font-size: 0.95rem;
+        }
+        
+        .result-content h1, .result-content h2, .result-content h3 {
+            margin: 16px 0 8px 0;
+            color: var(--primary);
+        }
+        
+        .result-content ul, .result-content ol {
+            margin-left: 20px;
+        }
+        
+        .result-content code {
+            background: #e0e7ff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .thinking-content {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 16px;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+            color: #92400e;
+            display: none;
+        }
+        
+        .thinking-content.active {
+            display: block;
+        }
+        
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        
+        .btn-secondary {
+            padding: 12px;
+            background: white;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text);
+            transition: all 0.2s;
+        }
+        
+        .btn-secondary:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+        
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+        
+        @media (max-width: 600px) {
+            h1 { font-size: 1.5rem; }
+            .option-buttons { grid-template-columns: 1fr; }
+            .action-buttons { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📝 手写笔记智能助手</h1>
+            <p class="subtitle">基于百度ERNIE-4.5-VL大模型，深度理解你的手写笔记</p>
+        </header>
+
+        <!-- 上传区域 -->
+        <div class="card">
+            <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0 auto 12px; color: var(--primary);">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <div class="upload-text">点击或拖拽上传笔记图片</div>
+                <div class="upload-hint">支持 JPG、PNG 格式，建议清晰拍摄</div>
+            </div>
+            <input type="file" id="fileInput" accept="image/*" capture="environment">
+            
+            <div class="preview-section" id="previewSection">
+                <img id="imagePreview" class="image-preview" alt="预览">
+            </div>
+        </div>
+
+        <!-- 选项区域 -->
+        <div class="card" id="optionsCard" style="display: none;">
+            <div class="options">
+                <label class="option-label">🎯 选择分析模式</label>
+                <div class="option-buttons">
+                    <button class="option-btn active" data-type="general">通用整理</button>
+                    <button class="option-btn" data-type="exam">考试重点</button>
+                    <button class="option-btn" data-type="math">数学公式</button>
+                    <button class="option-btn" data-type="english">英语笔记</button>
+                    <button class="option-btn" data-type="structure">思维导图</button>
+                    <button class="option-btn" data-type="custom">自定义</button>
+                </div>
+            </div>
+            
+            <div id="customPromptArea" style="display: none; margin-top: 16px;">
+                <label class="option-label">✏️ 自定义指令</label>
+                <textarea class="custom-prompt" id="customPrompt" placeholder="请输入你的自定义分析需求..."></textarea>
+            </div>
+
+            <button class="btn-primary" id="analyzeBtn" style="margin-top: 20px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                </svg>
+                开始智能分析
+            </button>
+        </div>
+
+        <!-- 加载状态 -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>正在深度理解你的笔记...</p>
+            <p style="font-size: 0.85rem; color: var(--text-light); margin-top: 8px;">ERNIE-4.5-VL正在分析图像结构与语义</p>
+        </div>
+
+        <!-- 结果区域 -->
+        <div class="result-section card" id="resultSection">
+            <div class="result-tabs">
+                <button class="tab-btn active" onclick="switchTab('content')">整理结果</button>
+                <button class="tab-btn" onclick="switchTab('thinking')">思考过程</button>
+            </div>
+            
+            <div class="thinking-content" id="thinkingContent"></div>
+            <div class="result-content" id="resultContent"></div>
+            
+            <div class="action-buttons">
+                <button class="btn-secondary" onclick="copyResult()">📋 复制内容</button>
+                <button class="btn-secondary" onclick="exportMarkdown()">💾 导出Markdown</button>
+                <button class="btn-secondary" onclick="newAnalysis()">🔄 新的分析</button>
+                <button class="btn-secondary" onclick="shareResult()">📤 分享</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // 配置：修改为你的Render后端地址
+        const API_BASE_URL = 'https://your-service-name.onrender.com';
+        
+        let currentImage = null;
+        let currentType = 'general';
+        let currentResult = null;
+
+        // DOM元素
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const previewSection = document.getElementById('previewSection');
+        const imagePreview = document.getElementById('imagePreview');
+        const optionsCard = document.getElementById('optionsCard');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const loading = document.getElementById('loading');
+        const resultSection = document.getElementById('resultSection');
+        const resultContent = document.getElementById('resultContent');
+        const thinkingContent = document.getElementById('thinkingContent');
+        const customPromptArea = document.getElementById('customPromptArea');
+
+        // 文件上传处理
+        fileInput.addEventListener('change', handleFileSelect);
+        
+        // 拖拽上传
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length) handleFile(files[0]);
+        });
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+        }
+
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                showToast('请选择图片文件');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                currentImage = e.target.result.split(',')[1]; // 获取base64
+                imagePreview.src = e.target.result;
+                previewSection.classList.add('active');
+                optionsCard.style.display = 'block';
+                showToast('图片上传成功！');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 选项切换
+        document.querySelectorAll('.option-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentType = btn.dataset.type;
+                
+                if (currentType === 'custom') {
+                    customPromptArea.style.display = 'block';
+                } else {
+                    customPromptArea.style.display = 'none';
+                }
+            });
+        });
+
+        // 开始分析
+        analyzeBtn.addEventListener('click', async () => {
+            if (!currentImage) {
+                showToast('请先上传图片');
+                return;
+            }
+
+            const customPrompt = document.getElementById('customPrompt').value;
+            
+            analyzeBtn.disabled = true;
+            optionsCard.style.display = 'none';
+            loading.classList.add('active');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/analyze`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        image: currentImage,
+                        type: currentType,
+                        prompt: customPrompt
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentResult = data;
+                    displayResult(data);
+                    showToast('分析完成！');
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                showToast('分析失败：' + error.message);
+                optionsCard.style.display = 'block';
+            } finally {
+                loading.classList.remove('active');
+                analyzeBtn.disabled = false;
+            }
+        });
+
+        function displayResult(data) {
+            resultSection.classList.add('active');
+            resultContent.innerHTML = formatMarkdown(data.content);
+            
+            if (data.reasoning) {
+                thinkingContent.textContent = data.reasoning;
+            } else {
+                thinkingContent.textContent = '（此模型版本未返回思考过程）';
+            }
+            
+            // 滚动到结果区域
+            resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function formatMarkdown(text) {
+            // 简单的Markdown格式化
+            return text
+                .replace(/### (.*)/g, '<h3>$1</h3>')
+                .replace(/## (.*)/g, '<h2>$1</h2>')
+                .replace(/# (.*)/g, '<h1>$1</h1>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                .replace(/- (.*)/g, '<li>$1</li>')
+                .replace(/\n/g, '<br>');
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            if (tab === 'content') {
+                resultContent.style.display = 'block';
+                thinkingContent.classList.remove('active');
+            } else {
+                resultContent.style.display = 'none';
+                thinkingContent.classList.add('active');
+            }
+        }
+
+        function copyResult() {
+            const text = currentResult.content;
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('已复制到剪贴板');
+            });
+        }
+
+        async function exportMarkdown() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/export`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        content: currentResult.content,
+                        title: '手写笔记整理'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // 创建下载
+                const blob = new Blob([data.markdown], { type: 'text/markdown' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `笔记整理_${new Date().toLocaleDateString()}.md`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                showToast('Markdown已导出');
+            } catch (error) {
+                showToast('导出失败');
+            }
+        }
+
+        function newAnalysis() {
+            // 重置所有状态
+            currentImage = null;
+            currentResult = null;
+            fileInput.value = '';
+            previewSection.classList.remove('active');
+            optionsCard.style.display = 'none';
+            resultSection.classList.remove('active');
+            document.getElementById('customPrompt').value = '';
+            
+            // 滚动到顶部
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            showToast('可以上传新笔记了');
+        }
+
+        function shareResult() {
+            if (navigator.share) {
+                navigator.share({
+                    title: '我的手写笔记整理',
+                    text: currentResult.content.substring(0, 100) + '...',
+                });
+            } else {
+                showToast('请手动复制分享');
+            }
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
